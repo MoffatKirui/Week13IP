@@ -1,0 +1,389 @@
+---
+title: "Moringa_Data_Science_Core_W13_Independent_Project_Moffat_Kirui_R_Supervised_learning"
+output:
+  html_document: default
+  word_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Defining the Question
+
+## a) Specifying the question
+
+To create a supervised learning model to help identify which individuals are most likely to click on the ads in the blog. 
+
+## b) Defining the metric of success
+
+Our project will be a success if we successfully create a supervised learning model that identify individuals that are most likely to click on the ads.
+
+## c) Understanding the context
+
+A Kenyan entrepreneur has created an online cryptography course and would want to advertise it on her blog. She currently targets audiences originating from various countries. In the past, she ran ads to advertise a related course on the same blog and collected data in the process.
+
+## d) Recording the Experimental Design
+
+-   Find and deal with outliers, anomalies, and missing data within the dataset.
+-   Perform univariate and bivariate analysis.
+-   From your insights provide a conclusion and recommendation.
+
+## e) Data Relevance
+
+"Daily Time Spent on Site"- amount of time spent on the site "Age"- age of the respondent\
+"Area Income"\
+"Daily Internet Usage"- respondent's daily internet usage\
+"Ad Topic Line"- topic line of the ad shown to the respondent\
+"City" - respondents city\
+"Male" - gender of the respondent with 0 for female and 1 for male\
+"Country"- country of the respondent\
+"Timestamp"- time the respondent clicked the ad\
+"Clicked on Ad"- whether the respondent clicked the ad or not
+
+# 2. Reading the data
+
+```{r}
+library(tidyverse)
+library(readr)
+adv<- read_csv("http://bit.ly/IPAdvertisingData")
+```
+
+# 3. Checking the data
+
+```{r}
+# Determining the no. of records in our dataset
+#
+dim(adv)
+```
+
+```{r}
+# Checking the class of the object "adv"
+
+class(adv)
+```
+
+```{r}
+# Previewing the top of our dataset
+#
+head(adv)
+```
+
+```{r}
+# Previewing the bottom of our dataset
+# 
+tail(adv)
+```
+
+```{r}
+# Checking whether each column has an appropriate datatype
+#
+str(adv)
+```
+
+# 4. Tidying the dataset
+
+```{r}
+# Checking whether there are missing values in each column
+colSums(is.na(adv))
+```
+
+```{r}
+# checking for duplicates
+duplicated_rows <- adv[duplicated(adv),]
+duplicated_rows
+anyDuplicated(adv)
+```
+
+```{r}
+#rename columns 
+colnames(adv)
+names(adv)[1]<- "time_spent"
+names(adv)[2]<- "age"
+names(adv)[3]<- "a_income"
+names(adv)[4]<- "daily_usage"
+names(adv)[5]<- "ad_topic"
+names(adv)[6]<- "city"
+names(adv)[7]<- "gender"
+names(adv)[8]<- "country"
+names(adv)[9]<- "timestamp"
+names(adv)[10]<- "clicked_ad"
+```
+
+```{r}
+### checking for outliers, we only need the numerical columns
+
+# convert the gender and clicked_ad to factor
+adv$gender<- as.factor(adv$gender)
+adv$clicked_ad<- as.factor(adv$clicked_ad)
+#first we get the numerical columns 
+
+nums <- unlist(lapply(adv, is.numeric)) 
+
+numcols <- adv[ ,nums]
+colnames(numcols)
+boxplot(adv$time_spent)
+boxplot(adv$age)
+boxplot(adv$a_income)
+boxplot(adv$daily_usage)
+```
+
+# 5. Exploratory Data Analysis
+
+## univariate analysis
+### summary of the dataset
+```{r}
+summary(adv)
+library(psych)
+description<- describe(adv)
+description
+```
+### Mode
+```{r}
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+Age.Mode<-getmode(adv$age)
+Age.Mode
+Area.income.mode<- getmode(adv$a_income)
+Area.income.mode
+timespent.mode<- getmode(adv$time_spent)
+timespent.mode
+dailyusage.mode<- getmode(adv$daily_usage)
+dailyusage.mode
+countrymode<- getmode(adv$country)
+countrymode
+citymode<- getmode(adv$city)
+citymode
+adtopicmode<- getmode(adv$ad_topic)
+adtopicmode
+# Variance
+var(adv$time_spent)
+var(adv$age)
+var(adv$a_income)
+var(adv$daily_usage)
+# standard deviation
+sd(adv$time_spent)
+sd(adv$age)
+sd(adv$a_income)
+sd(adv$daily_usage)
+# Histograms
+hist(adv$time_spent)
+hist(adv$age)
+hist(adv$a_income)
+hist(adv$daily_usage)
+```
+
+```{r}
+# dataframe for those who clicked the ad
+click_adv<- adv[adv$clicked_ad==1,]
+head(click_adv)
+```
+
+### bar plot
+```{r}
+## distribution of gender for those who clicked ads
+gender_dist<- table(click_adv$gender)
+label<- c("female","male")
+barplot(gender_dist,names.arg=label,main="gender distribution")
+```
+```{r}
+## age distribution
+age_dist<- table(click_adv$age)
+barplot(age_dist,main="age distribution")
+```
+```{r}
+## distribution amongst countries
+topcountries<- head(sort(table(click_adv$country),decreasing=TRUE),n=10)
+barplot(topcountries,las=1, main="top countries",horiz=TRUE)
+```
+```{r}
+## distribution amongst cities
+topcities<- head(sort(table(click_adv$city),decreasing=TRUE),n=10)
+barplot(topcities,las=1, main="top cities",horiz=TRUE)
+```
+
+## bivariate analysis
+
+### correlation heatmap for numerical columns
+```{r} 
+library(corrplot) 
+corrs<- cor(numcols, method="pearson")
+corrplot(corrs,type="upper",order="hclust",tl.srt=45)
+```
+time spent on the site and the daily internet usage are the most highly correlated columns. Time spent on the site and daily internet usage are also significantly correlated to area income.
+
+### pair plots
+```{r}
+pairs(numcols)
+```
+the relations on the pair plots could not be seen clearly like on the heatmap.
+
+### lineplots
+```{r}
+df<- aggregate(time_spent~daily_usage,data=click_adv,mean)
+ggplot(data=df, aes(x=daily_usage,y=time_spent))+geom_line()+xlab(label="daily internet usage")+ylab(label="time spent on site")+labs(title="daily internet usage vs time spent on site")
+```
+as displayed on the heatmap daily internet usage and time spent on the site were averagely correlated.
+```{r}
+df1<- aggregate(time_spent~age,data=click_adv,mean)
+ggplot(data=df1, aes(x=age,y=time_spent))+geom_line()+xlab(label="Age")+ylab(label="time spent on site")+labs(title="Age vs time spent on site")
+```
+Approximately age 25 spent the most time on the site on average
+```{r}
+df2<- aggregate(time_spent~a_income,data=click_adv,mean)
+ggplot(data=df2, aes(x=a_income,y=time_spent))+geom_line()+xlab(label="Area income")+ylab(label="time spent on site")+labs(title="Area income vs time spent on site")
+```
+there was a normal distribution around 55 time spent on site for the income.Most people who clicked the ads lied within the range of 40 to 70 time spent on site
+
+
+# 6. Modelling
+```{r}
+# selecting numerical columns
+df <- adv[,c(1:4,7,10)]
+head(df)
+```
+
+```{r}
+library(caTools)
+# Splitting data into train
+# and test data
+df$gender<- as.integer(df$gender)
+df$clicked_ad<- as.integer(df$clicked_ad)
+set.seed(222)
+ 
+sample_size = round(nrow(df)*.70) # setting what is 70%
+index <- sample(seq_len(nrow(df)), size = sample_size)
+train <- df[index, ]
+test <- df[-index, ]
+
+# Feature Scaling
+train_scale <- scale(train[, 1:5])
+test_scale <- scale(test[, 1:5])
+```
+
+### K-NEAREST NEIGHBOUR CLASSIFIER
+```{r}
+library(class)
+library(caret)
+```
+
+```{r}
+# Fitting KNN Model 
+# to training dataset
+knn <- knn(train = train_scale,
+           test = test_scale,
+            cl = train$clicked_ad,
+            k = 32)
+```
+knn has an accuracy of 95% and a kappa of 90%
+```{r}
+# Confusion Matrix
+cm <- table(test$clicked_ad,knn)
+confusionMatrix(cm)
+```
+
+
+### NAIVE BAYES CLASSIFIER
+```{R}
+# Loading package
+library(e1071)
+library(caTools)
+library(caret)
+
+# Fitting Naive Bayes Model to the training dataset
+set.seed(120)  # Setting Seed
+Naivebayes <- naiveBayes(clicked_ad ~ ., data = train)
+
+```
+
+```{r}
+# Predicting on test data'
+y_pred <- predict(Naivebayes, newdata = test)
+# Confusion Matrix
+cm <- table(test$clicked_ad,y_pred)
+
+# Model Evauation
+confusionMatrix(cm)
+```
+naive bayes has an accuracy of 95% as well and a slightly improved kappa of 91%
+
+### RANDOM FOREST CLASSIFIER
+```{r}
+# Loading package
+library(caTools)
+library(randomForest)
+```
+
+```{r}
+# Fitting Random Forest to the train dataset
+set.seed(120)  # Setting seed
+rf <- randomForest(as.factor(clicked_ad) ~ ., 
+                        data = train, 
+                        importance = TRUE,
+                        proximity = TRUE)
+```
+
+```{r}
+print(rf)
+```
+
+```{r}
+# Predicting the Test set results
+y_pred = predict(rf, test)
+```
+
+```{r}
+# Confusion Matrix
+confusion_mtx = table( y_pred,test$clicked_ad)
+confusionMatrix(confusion_mtx)
+```
+random forest has an accuracy of 95% and a kappa od 90% 
+```{r}
+# Plotting model
+plot(rf)
+```
+
+```{r}
+# Importance plot
+importance(rf)
+```
+
+```{r}
+# Variable importance plot
+varImpPlot(rf)
+```
+### Support Vector Classifier
+```{r}
+# 
+library(e1071)
+  
+classifier = svm(formula = clicked_ad ~ .,
+                 data = train,
+                 type = 'C-classification',
+                 kernel = 'linear')
+```
+
+```{r}
+# Predicting the Test set results
+y_pred = predict(classifier, newdata = test)
+```
+
+```{r}
+# Making the Confusion Matrix
+cm = table(test$clicked_ad, y_pred)
+confusionMatrix(cm)
+```
+svm has the best accuracy of 96 % and kappa of 93%
+# 7. Conclusion
++ Though not by much, females were more likely to click on ads.
++ Top countries that clicked on ads were Australia,Ethiopia and Turkey respectively.
++ Top cities to click ads were Lake David, Lake James and Lisamouth respectively.
++ About age 25 was the that clicked ads the most on average. Range of between 35 to 50 were the most active in clicking ads.
++ Those who spent on average between 40 to 70  on the site among all incomes were most likely to click on ads.
++ We reccomend that the entrepreneur targets the above profile for optimal results on the advertisement of the new course.
+
+* From the modelling done above we would reccomend they adopt svm as it gave as the best accuracy as well as kappa.

@@ -1,0 +1,330 @@
+---
+title: "Moringa_Data_Science_Core_W13_Independent_Project_Moffat_Kirui_UnsupervisedLearning"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Defining the Question
+
+## a) Specifying the question
+
+To learn the characteristics of customer groups by performing clustering.
+
+## b) Defining the metric of success
+
+Our project will be a success if we successfully group the customers into significant clusters.
+
+## c) Understanding the context
+
+Kira Plastinina is a Russian brand that is sold through a defunct chain of retail stores in Russia, Ukraine, Kazakhstan, Belarus, China, Philippines, and Armenia. The brand’s Sales and Marketing team would like to understand their customer’s behavior from data that they have collected over the past year. More specifically, they would like to learn the characteristics of customer groups.
+
+## d) Recording the Experimental Design
+
+* Problem Definition
+* Data Sourcing
+* Check the Data
+* Perform Data Cleaning
+* Perform Exploratory Data Analysis  (Univariate, Bivariate & Multivariate)
+* Implement the Solution
+* Challenge the Solution
+* Follow up Questions
+
+## e) Data Relevance
+
+* The dataset consists of 10 numerical and 8 categorical attributes. The 'Revenue' attribute can be used as the class label.
+* "Administrative", "Administrative Duration", "Informational", "Informational Duration", "Product Related" and "Product Related Duration" represents the number of different types of pages visited by the visitor in that session and total time spent in each of these page categories. The values of these features are derived from the URL information of the pages visited by the user and updated in real-time when a user takes an action, e.g. moving from one page to another. 
+* The "Bounce Rate", "Exit Rate" and "Page Value" features represent the metrics measured by "Google Analytics" for each page in the e-commerce site. 
+* The value of the "Bounce Rate" feature for a web page refers to the percentage of visitors who enter the site from that page and then leave ("bounce") without triggering any other requests to the analytics server during that session. 
+* The value of the "Exit Rate" feature for a specific web page is calculated as for all pageviews to the page, the percentage that was the last in the session.
+* The "Page Value" feature represents the average value for a web page that a user visited before completing an e-commerce transaction. 
+* The "Special Day" feature indicates the closeness of the site visiting time to a specific special day (e.g. Mother’s Day, Valentine's Day) in which the sessions are more likely to be finalized with the transaction. The value of this attribute is determined by considering the dynamics of e-commerce such as the duration between the order date and delivery date. For example, for Valentina’s day, this value takes a nonzero value between February 2 and February 12, zero before and after this date unless it is close to another special day, and its maximum value of 1 on February 8. 
+* The dataset also includes the operating system, browser, region, traffic type, visitor type as returning or new visitor, a Boolean value indicating whether the date of the visit is weekend, and month of the year.
+
+# 2. Reading the data
+
+```{r}
+library(tidyverse)
+library(readr)
+ecomm<- read_csv("http://bit.ly/EcommerceCustomersDataset")
+```
+
+# 3. Checking the data
+
+```{r}
+# Determining the no. of records in our dataset
+#
+dim(ecomm)
+```
+
+```{r}
+# Previewing the top of our dataset
+#
+head(ecomm)
+```
+
+```{r}
+# Previewing the bottom of our dataset
+# 
+tail(ecomm)
+```
+
+```{r}
+# Checking whether each column has an appropriate datatype
+#
+str(ecomm)
+```
+
+# 4. Tidying the dataset
+
+```{r}
+# Checking whether there are missing values in each column
+colSums(is.na(ecomm))
+```
+```{r}
+# dropping null values
+ecomm <-na.omit(ecomm)
+```
+```{r}
+# checking for duplicates
+anyDuplicated(ecomm)
+```
+```{r}
+#dealing with duplicates
+ecomm<- ecomm[!duplicated(ecomm),]
+```
+
+```{r}
+### checking for outliers, we only need the numerical columns
+
+numcols <- ecomm[ ,1:10]
+dev.new(width=10, height=5, unit="in")
+invisible(lapply(1:ncol(numcols), function(i) boxplot(numcols[[i]],main = paste("Boxplot of" , colnames(numcols[,i])))))
+```
+There were outliers in all the numerical values but since they were within the acceptable range of values we left them as they were.
+
+# 5. Exploratory Data Analysis
+
+## univariate analysis
+### summary of the numerical variables
+```{r}
+summary(numcols)
+```
+from the summary we found that some of the visit durations were -1 which is an anormalysince duartion cannot be negative therefore we decided to input the default value of zero.
+```{r}
+ecomm[ecomm == -1]<-0
+```
+```{r}
+# describing numerical columns
+library(psych)
+description<- describe(numcols)
+description
+```
+### frequency tables for the categorical variables
+```{r}
+cat_cols<- ecomm[,11:18]
+library(epiDisplay)
+dev.new(width=10, height=5, unit="in")
+lapply(1:ncol(cat_cols), function(x) tab1(cat_cols[,x], sort.group = "decreasing", cum.percent = TRUE,main = colnames(cat_cols[,x])))
+```
+* There were 10 months in the records excluding January and April. May had the most records while February had the least.
+* Operating systems 2 had the most while 6 was the least.
+* Browser 2 was the most while 9 the least
+* Region 1 had the most records whle 5 the least
+* TrafficType 2 was the most while 12 the least
+* Returning visitors were the most while others the least
+* Weekdays were more compared to weekends
+* Revenue was less compared to non-revenue
+
+### Histograms
+```{r}
+invisible(lapply(names(numcols), function(n) hist(numcols[[n]],main = paste("Histogram of" , colnames(numcols[,n])))))
+
+```
+## bivariate analysis
+
+
+### categorical vs categorical
+
+```{r}
+# stacked bar chart
+ggplot(ecomm, 
+       aes(x = Month, 
+           fill = Revenue)) + 
+  geom_bar(position = "stack")
+```
+November had the most revenue while February the least.
+```{r}
+# stacked bar chart
+ggplot(ecomm, 
+       aes(x = VisitorType, 
+           fill = Weekend)) + 
+  geom_bar(position = "stack")
+```
+```{r}
+ggplot(ecomm, 
+       aes(x = Weekend, 
+           fill = Revenue)) + 
+  geom_bar(position = "dodge")
+```
+More revenue was collected on weekdays compared to weekends
+
+### numerical vs numerical
+```{r}
+# scatterplot with linear fit line
+ggplot(ecomm,
+       aes(x = BounceRates, 
+           y = ExitRates)) +
+  geom_point(color= "steelblue") +
+  geom_smooth(method = "lm")
+```
+```{r}
+df<- aggregate(Administrative_Duration~Administrative,data=ecomm,mean)
+ggplot(data=df, aes(x=Administrative,y=Administrative_Duration))+geom_line()+xlab(label="Administrative")+ylab(label="Administrative_Duration")+labs(title="Average Administrative_Duration vs Administrative ")
+```
+```{r}
+df1<- aggregate(Informational_Duration~Informational,data=ecomm,mean)
+ggplot(data=df1, aes(x=Informational,y=Informational_Duration))+geom_line()+xlab(label="Informational")+ylab(label="Informational_Duration")+labs(title="Average Informational_Duration vs Informational ")
+```
+```{r}
+df2<- aggregate(ProductRelated_Duration~ProductRelated,data=ecomm,mean)
+ggplot(data=df2, aes(x=ProductRelated,y=ProductRelated_Duration))+geom_line()+xlab(label="ProductRelated")+ylab(label="ProductRelated_Duration")+labs(title="Average ProductRelated_Duration vs ProductRelated ")
+```
+The correlation between number of visits and the average duration can be seen from the plots. For productrelated there was a peak at around 450 while the informational ones the peak was at around 11-14 .
+```{r}
+df3<- aggregate(PageValues~SpecialDay,data=ecomm,mean)
+ggplot(data=df3, aes(x=SpecialDay,y=PageValues)) +
+  geom_line(size = 1.5, 
+            color = "lightgrey") +
+  geom_point(size = 3, 
+             color = "steelblue")+xlab(label="SpecialDay")+ylab(label="PageValues")+labs(title="PageValues vs SpecialDay")
+```
+The page values had an inverse relation with the special day rating
+
+### categorical vs numerical
+```{r}
+# calculate mean bouncerate for each month
+library(dplyr)
+plotdata <- ecomm %>%
+  group_by(Month) %>%
+  summarize(mean_bouncerate = mean(BounceRates))
+
+# plot mean salaries
+ggplot(plotdata, 
+       aes(x = Month, 
+           y = mean_bouncerate)) +
+  geom_bar(stat = "identity")
+```
+February had the highest average bounce rates while october and september had the least
+
+```{r}
+plotdata <- ecomm %>%
+  group_by(VisitorType) %>%
+  summarize(mean_exitrate = mean(ExitRates))
+
+# plot mean salaries
+ggplot(plotdata, 
+       aes(x = VisitorType, 
+           y = mean_exitrate)) +
+  geom_bar(stat = "identity")
+```
+'other' category had the highest exit rates follwed by the returning visitors.
+
+## Multivariate analysis
+### correlation heatmap for numerical columns
+```{r} 
+library(corrplot) 
+corrs<- cor(numcols, method="pearson")
+corrplot(corrs,type="upper",order="hclust",tl.srt=45)
+corrs
+```
+* BounceRates and ExitRates were highly correlated with a correlation of 0.9 followed by productRelated-ProductRelated_Duration with o.86.
+* ProductRelate-SpecialDay had the least correlation = -0.026
+### pair plots
+```{r}
+pairs(numcols)
+```
+the relations on the pair plots could not be seen clearly like on the heatmap.
+
+# Solution Implementation
+
+## label encoding categorical variables
+```{r}
+library(superml)
+label <- LabelEncoder$new()
+label$fit(ecomm$Month)
+ecomm$Month <- label$fit_transform(ecomm$Month)
+label$fit(ecomm$VisitorType)
+ecomm$VisitorType <- label$fit_transform(ecomm$VisitorType)
+ecomm$Weekend<- as.integer(ecomm$Weekend)
+ecomm$Revenue<- as.integer(ecomm$Revenue)
+```
+
+## Normalizing the data
+
+```{r}
+#define Min-Max normalization function
+min_max_norm <- function(x) {
+    (x - min(x)) / (max(x) - min(x))
+  }
+  
+#apply Min-Max normalization
+ecomm_norm <- as.data.frame(lapply(ecomm[1:17], min_max_norm))
+head(ecomm_norm)
+```
+## Dimensionality reduction
+```{r}
+library(factoextra)
+res.pca <- prcomp(ecomm_norm)
+fviz_eig(res.pca)
+summary(res.pca)
+ecomm.new<- res.pca$x
+```
+with 7 principal components we have 89.7% explained variance which is a good percentage.
+
+## K-means Clustering
+
+### finding optimum value for k
+#### elbow method
+```{r}
+library(cluster)
+set.seed(123)
+
+fviz_nbclust(ecomm.new[,1:7], kmeans, method = "wss")
+```
+#### silhoutte method
+```{r}
+fviz_nbclust(ecomm.new[,1:7], kmeans, method = "silhouette")
+```
+elbow method gave us a k of 3 , silhoute=2. we can choose 2 which reflects the classes of the revenue.
+
+### extracting results
+```{r}
+# Compute k-means clustering with k = 2
+set.seed(123)
+final <- kmeans(ecomm.new[,1:7], 2, nstart = 25)
+print(final)
+fviz_cluster(final, data = ecomm.new[,1:7])
+```
+## Hierarchical clustering
+```{r}
+# Getting euclidean distance
+d <- dist(ecomm.new[,1:7], method = "euclidean")
+# Implementing hierarchical clustering
+res.hc <- hclust(d, method = "ward.D2")
+# Plotting the dedrogram
+plot(res.hc, cex = 0.6, hang = -1)
+res.hc1 <- hclust(d, method = "complete")
+# Plotting the dedrogram
+plot(res.hc1, cex = 0.6, hang = -1)
+```
+# conclusion
+ K-means clustering was able to cluster the customers into two clusters with one cluster being much bigger than the other which reflects the distribution of the revenues where we had the false being significantly more than the true.
+ hierarchical clustering does the job as well.
